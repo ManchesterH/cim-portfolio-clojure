@@ -97,20 +97,8 @@ Ensure that the following are installed:
 - Java
 - Clojure (install via homebrew on MacOS)
 - Leiningen (install via homebrew on MacOS)
-- Python 2/3 + pip 
 
-Run the following command to install the yfinance package and currency converter package:
-`pip install yfinance CurrencyConverter`
-
-CurrencyConverter: https://pypi.org/project/CurrencyConverter/
-yFinance: https://pypi.org/project/yfinance/
-
-If you're using Python3, run the above command with `pip3` instead on your Terminal.
-Verify that these packages are installed and can be run in a python environment.
-
-KEY DEPENDENCY: clj-python/libpython-clj
-libpython-clj (https://github.com/clj-python/libpython-clj) is a key requirement to run Python code within Clojure.
-Python objects are linked to the JVM, allowing Clojure to run the yfinanceclient.clj file that enables scraping data from Python's yfinance package.
+Market data is fetched natively via [clj-yfinance](https://github.com/clojure-finance/clj-yfinance), and currency conversion uses ECB rates via [ecbjure](https://github.com/clojure-finance/ecbjure) — no Python installation is required.
 
 
 ## Usage (Running Locally)
@@ -132,6 +120,8 @@ Format of portfolio file (in csv):
 Date (YYYY-MM-DD)   |   Action (buy/sell)   |   Number of units bought/sold    |    Ticker
 
 (refer to testPortfolio.csv)
+
+Record trades exactly as they happened: units as of the trade date. Stock splits are handled automatically — trade data is normalized to post-split units before analysis, consistent with Yahoo Finance's split-adjusted price history.
 
 ## Options
 

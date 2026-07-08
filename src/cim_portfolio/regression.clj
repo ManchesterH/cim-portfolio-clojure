@@ -1,19 +1,13 @@
 (ns cim_portfolio.regression
-    (:require 
-    ;;  [cim_portfolio.plot :as plot]
-              [cim_portfolio.portfoliofunctions :as portfolio]
-              [fastmath.ml.regression :as reg] 
-              [libpython-clj2.python :refer [py. py.. py.-] :as py]
-              [clojure.data.json :as json]
-    ))
-
-(py/initialize! :python-executable "/home/edward/miniconda3/envs/cim-portfolio/bin/python")
+  (:require [cim_portfolio.plot :as plot]
+            [cim_portfolio.portfoliofunctions :as portfolio]
+            [cim_portfolio.yfinanceclient :as client]
+            [fastmath.ml.regression :as reg]))
 
 (defn calculate-regression [stock-returns market-returns] ;; both returns are 1D sequences
-    (reg/lm
-        stock-returns
-        (map vector market-returns)
-    ))
+  (reg/lm
+   stock-returns
+   (map vector market-returns)))
 
 (defn rolling-capm-regression [complete-stock-returns complete-market-returns window-size]
   (let [stock-windows (partition window-size 1 complete-stock-returns)
@@ -22,33 +16,14 @@
         alpha-seq (map :intercept rolling-regression)
         beta-seq (map :beta rolling-regression)]
 
-        {:alpha alpha-seq
-         :beta beta-seq}
-  ))
+    {:alpha alpha-seq
+     :beta beta-seq}))
 
-;; Define simple python script to get sample data (for now)
+;; Fetch sample data (NVDA vs the S&P 500, both already in USD) via the native client
 
-(def get-python-data (py/run-simple-string 
-"from datetime import datetime, timedelta
-import yfinance as yf
+(def stock-data (client/get-ticker-price-with-end "NVDA" "2022-09-01" "2025-09-01"))
 
-# Both are already in USD
-
-nvidia_data = yf.download('NVDA', start='2022-09-01', end='2025-09-01')
-snp_data = stock_data = yf.download('^GSPC', start='2022-09-01', end='2025-09-01') 
-
-nvidia_data.reset_index(inplace=True)
-snp_data.reset_index(inplace=True)
-
-nvidia_data['Date'] = nvidia_data['Date'].dt.strftime('%Y-%m-%d')
-snp_data['Date'] = snp_data['Date'].dt.strftime('%Y-%m-%d')
-
-stock_data = nvidia_data[['Date', 'Open', 'Close']].to_json(orient = 'values')
-market_data = snp_data[['Date', 'Open', 'Close']].to_json(orient = 'values')"))
-
-(def stock-data (json/read-str (:stock_data (:globals get-python-data))))
-
-(def market-data (json/read-str (:market_data (:globals get-python-data))))
+(def market-data (client/get-ticker-price-with-end "^GSPC" "2022-09-01" "2025-09-01"))
 
 ;; They are the same size 
 
@@ -82,13 +57,13 @@ market_data = snp_data[['Date', 'Open', 'Close']].to_json(orient = 'values')"))
 (def plotted-dates (subvec (vec stock-dates) 252))
 (def plotted-alphas (vec (model :alpha)))
 
-;; (plot/list-plot (map vector plotted-dates plotted-alphas) :x-title "Time" :y-title "α (NVDA)")
+(plot/list-plot (map vector plotted-dates plotted-alphas) :x-title "Time" :y-title "α (NVDA)")
 
 ;; Plotting Betas
 
 (def plotted-betas (vec (map first (model :beta))))
 
-;; (plot/list-plot (map vector plotted-dates plotted-betas) :x-title "Time" :y-title "β (NVDA)")
+(plot/list-plot (map vector plotted-dates plotted-betas) :x-title "Time" :y-title "β (NVDA)")
 
 ;; Creating a function to return alphas and betas
 
@@ -100,13 +75,11 @@ market_data = snp_data[['Date', 'Open', 'Close']].to_json(orient = 'values')"))
         stock-returns (vals (:arithmetic-returns (portfolio/calculate-returns-with-corresponding-date stock-prices stock-dates)))
         market-returns (vals (:arithmetic-returns (portfolio/calculate-returns-with-corresponding-date market-prices market-dates)))
         plotted-dates (subvec (vec stock-dates) 252)
-        model (rolling-capm-regression stock-returns market-returns 252) 
-        ]
+        model (rolling-capm-regression stock-returns market-returns 252)]
     (-> {}
         (assoc :plotted-dates plotted-dates)
         (assoc :plotted-alpha (vec (model :alpha)))
-        (assoc :plotted-beta (vec (map first (model :beta))))
-        )))
+        (assoc :plotted-beta (vec (map first (model :beta)))))))
 
 ;; Testing said function
 
@@ -114,10 +87,10 @@ market_data = snp_data[['Date', 'Open', 'Close']].to_json(orient = 'values')"))
 
 ;; Alpha
 
-;; (plot/list-plot (map vector (:plotted-dates regression-dataset) (:plotted-alpha regression-dataset)) 
-                ;; :x-title "Time" :y-title "α (NVDA)")
+(plot/list-plot (map vector (:plotted-dates regression-dataset) (:plotted-alpha regression-dataset))
+                :x-title "Time" :y-title "α (NVDA)")
 
 ;; Beta
 
-;; (plot/list-plot (map vector (:plotted-dates regression-dataset) (:plotted-beta regression-dataset))
-;;                 :x-title "Time" :y-title "β (NVDA)")
+(plot/list-plot (map vector (:plotted-dates regression-dataset) (:plotted-beta regression-dataset))
+                :x-title "Time" :y-title "β (NVDA)")
